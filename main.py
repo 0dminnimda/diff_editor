@@ -16,15 +16,12 @@ class CodePanel(QWidget):
 
         self.editor = QPlainTextEdit(self)
 
-    def setReadOnly(self, value: bool = True):
-        self.editor.setReadOnly(value)
-
     def setText(self, text: str):
         self.editor.setPlainText(text)
         return self
 
-    def verticalScrollBar(self):
-        return self.editor.verticalScrollBar()
+    def setReadOnly(self, value: bool = True):
+        self.editor.setReadOnly(value)
 
 
 class DiffEditor(QWidget):
@@ -46,8 +43,8 @@ class DiffEditor(QWidget):
         self._update_diff_when(self.new.editor.textChanged)
 
     def _sync_scroll_bars(self):
-        old_scroll_bar = self.old.verticalScrollBar()
-        new_scroll_bar = self.new.verticalScrollBar()
+        old_scroll_bar = self.old.editor.verticalScrollBar()
+        new_scroll_bar = self.new.editor.verticalScrollBar()
 
         new_scroll_bar.valueChanged.connect(old_scroll_bar.setValue)
         old_scroll_bar.valueChanged.connect(new_scroll_bar.setValue)
