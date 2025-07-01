@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QHBoxLayout,
 )
-from PySide6.QtCore import Slot
+from PySide6.QtCore import Slot, QTimer
 
 
 class CodePanel(QWidget):
@@ -28,6 +28,8 @@ class CodePanel(QWidget):
 
 
 class DiffEditor(QWidget):
+    UPDATE_DELAY_MS = 300
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -41,10 +43,7 @@ class DiffEditor(QWidget):
         layout.addWidget(self.old)
         layout.addWidget(self.new)
 
-    def set_diff_text(self, old: str, new: str):
-        self.old.setText(old)
-        self.new.setText(new)
-        return self
+        self.update_diff_when(self.new.editor.textChanged)
 
     def sync_scroll_bars(self):
         old_scroll_bar = self.old.verticalScrollBar()
@@ -52,6 +51,22 @@ class DiffEditor(QWidget):
 
         new_scroll_bar.valueChanged.connect(old_scroll_bar.setValue)
         old_scroll_bar.valueChanged.connect(new_scroll_bar.setValue)
+
+    def update_diff_when(self, event):
+        self.update_timer = QTimer(self)
+        self.update_timer.setSingleShot(True)
+        self.update_timer.setInterval(self.UPDATE_DELAY_MS)
+        self.update_timer.timeout.connect(self.update_diff)
+
+        event.connect(self.update_timer.start)
+
+    def set_diff_text(self, old: str, new: str):
+        self.old.setText(old)
+        self.new.setText(new)
+        return self
+
+    def update_diff(self):
+        print("updating!")
 
 
 class MainWindow(QMainWindow):
