@@ -87,8 +87,20 @@ class MainWindow(QMainWindow):
         diff_editor = DiffEditor(self)
         self.setCentralWidget(diff_editor)
         diff_editor.set_diff_text(
-            "This is my custom widget!",
-            "This is my custom widget!"
+            """\
+def hello_world():
+    # This is the original function
+    print("Hello, world!")
+
+# Unchanged line
+""",
+            """\
+def hello_universe():
+    # This function was modified
+    print("Hello, beautiful universe!")
+
+# Unchanged line
+"""
         )
 
 
