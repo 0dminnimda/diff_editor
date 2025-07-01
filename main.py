@@ -29,6 +29,7 @@ class CodePanel(QWidget):
         self.editor.setFrameShape(QPlainTextEdit.Shape.NoFrame)
 
         layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.editor)
 
     def setText(self, text: str):
@@ -52,6 +53,7 @@ class DiffEditor(QWidget):
         self._sync_scroll_bars()
 
         layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.old)
         layout.addWidget(self.new)
 
