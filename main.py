@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 
 from PySide6.QtWidgets import (
     QApplication,
@@ -8,6 +9,15 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
 )
 from PySide6.QtCore import Slot, QTimer
+
+
+DIR = Path(__file__).parent
+DARK_STYLE_SHEET_FILE = DIR/"dark_mode.qss"
+
+if DARK_STYLE_SHEET_FILE.exists():
+    DARK_STYLE_SHEET = DARK_STYLE_SHEET_FILE.read_text()
+else:
+    DARK_STYLE_SHEET = ""
 
 
 class CodePanel(QWidget):
@@ -82,9 +92,10 @@ class MainWindow(QMainWindow):
         )
 
 
-
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    if DARK_STYLE_SHEET:
+        app.setStyleSheet(DARK_STYLE_SHEET)
 
     window = MainWindow()
     window.show()

@@ -1,0 +1,63 @@
+QWidget {
+    background-color: #2b2b2b;
+    color: #f0f0f0;
+    border: none;
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 14px;
+}
+
+QMainWindow {
+    background-color: #2b2b2b;
+}
+
+QPlainTextEdit {
+    background-color: #1e1e1e; /* Slightly different bg for editors */
+    border: 1px solid #3c3c3c;
+    border-radius: 4px;
+    color: #d4d4d4;
+    selection-background-color: #007acc;
+    selection-color: #ffffff;
+}
+
+/* Style the scrollbars to match the dark theme */
+QScrollBar:vertical {
+    background: #2b2b2b;
+    width: 12px;
+    margin: 0px 0px 0px 0px;
+}
+QScrollBar::handle:vertical {
+    background: #5c5c5c;
+    min-height: 20px;
+    border-radius: 6px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #7f7f7f;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+    background: none;
+}
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: none;
+}
+
+QScrollBar:horizontal {
+    background: #2b2b2b;
+    height: 12px;
+    margin: 0px 0px 0px 0px;
+}
+QScrollBar::handle:horizontal {
+    background: #5c5c5c;
+    min-width: 20px;
+    border-radius: 6px;
+}
+QScrollBar::handle:horizontal:hover {
+    background: #7f7f7f;
+}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    width: 0px;
+    background: none;
+}
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+    background: none;
+}
