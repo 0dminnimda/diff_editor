@@ -47,4 +47,11 @@
 
 Удачи, и ждём вас в нашей команде!
 
+---
+
+More rejected examples:
+
+- ![diff view](/static/task_image_4.jpg)
+- ![diff view](/static/task_image_5.jpg)
+- ![diff view](/static/task_image_6.jpg)
 
