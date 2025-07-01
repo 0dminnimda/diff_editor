@@ -37,22 +37,22 @@ class DiffEditor(QWidget):
         self.new = CodePanel()
         self.old.setReadOnly(True)
 
-        self.sync_scroll_bars()
+        self._sync_scroll_bars()
 
         layout = QHBoxLayout(self)
         layout.addWidget(self.old)
         layout.addWidget(self.new)
 
-        self.update_diff_when(self.new.editor.textChanged)
+        self._update_diff_when(self.new.editor.textChanged)
 
-    def sync_scroll_bars(self):
+    def _sync_scroll_bars(self):
         old_scroll_bar = self.old.verticalScrollBar()
         new_scroll_bar = self.new.verticalScrollBar()
 
         new_scroll_bar.valueChanged.connect(old_scroll_bar.setValue)
         old_scroll_bar.valueChanged.connect(new_scroll_bar.setValue)
 
-    def update_diff_when(self, event):
+    def _update_diff_when(self, event):
         self.update_timer = QTimer(self)
         self.update_timer.setSingleShot(True)
         self.update_timer.setInterval(self.UPDATE_DELAY_MS)
