@@ -28,6 +28,9 @@ class CodePanel(QWidget):
         self.editor = QPlainTextEdit(self)
         self.editor.setFrameShape(QPlainTextEdit.Shape.NoFrame)
 
+        layout = QHBoxLayout(self)
+        layout.addWidget(self.editor)
+
     def setText(self, text: str):
         self.editor.setPlainText(text)
         return self
