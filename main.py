@@ -15,6 +15,7 @@ class CodePanel(QWidget):
         super().__init__(parent)
 
         self.editor = QPlainTextEdit(self)
+        self.editor.setFrameShape(QPlainTextEdit.Shape.NoFrame)
 
     def setText(self, text: str):
         self.editor.setPlainText(text)
