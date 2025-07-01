@@ -1,4 +1,5 @@
 import sys
+import signal
 from pathlib import Path
 
 from PySide6.QtWidgets import (
@@ -104,8 +105,10 @@ def hello_universe():
         )
 
 
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
+def main(argv: list[str] = sys.argv):
+    signal.signal(signal.SIGINT, signal.SIG_DFL)  # handle CTRL-C
+
+    app = QApplication(argv)
     if DARK_STYLE_SHEET:
         app.setStyleSheet(DARK_STYLE_SHEET)
 
@@ -113,3 +116,7 @@ if __name__ == "__main__":
     window.show()
 
     sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()
