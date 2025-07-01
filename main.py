@@ -21,12 +21,13 @@ else:
     DARK_STYLE_SHEET = ""
 
 
-class CodePanel(QWidget):
+class CodeEditor(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
         self.editor = QPlainTextEdit(self)
         self.editor.setFrameShape(QPlainTextEdit.Shape.NoFrame)
+        self.editor.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -46,8 +47,8 @@ class DiffEditor(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.old = CodePanel()
-        self.new = CodePanel()
+        self.old = CodeEditor()
+        self.new = CodeEditor()
         self.old.setReadOnly(True)
 
         self._sync_scroll_bars()
