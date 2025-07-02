@@ -23,6 +23,7 @@ from PySide6.QtGui import (
     QSyntaxHighlighter,
     QTextCharFormat,
     QTextDocument,
+    QFont,
 )
 
 from pygments import highlight
@@ -44,18 +45,48 @@ class PygmentsHighlighter(QSyntaxHighlighter):
     def __init__(self, parent: QTextDocument, lexer):
         super().__init__(parent)
         self.lexer = lexer
+        self.styles = self._chromodynamics_styles()
 
-        self.styles = {
-            Token.Keyword:          self._create_format(QColor("#C586C0")),
-            Token.Name.Function:    self._create_format(QColor("#DCDCAA")),
-            Token.Name.Class:       self._create_format(QColor("#4EC9B0")),
-            Token.String:           self._create_format(QColor("#CE9178")),
-            Token.Comment:          self._create_format(QColor("#6A9955"), italic=True),
-            Token.Operator:         self._create_format(QColor("#D4D4D4")),
-            Token.Number:           self._create_format(QColor("#B5CEA8")),
+    def _default_styles(self):
+        return {
+            Token.Keyword         : self._create_format(QColor("#C586C0")),
+            Token.Name.Function   : self._create_format(QColor("#DCDCAA")),
+            Token.Name.Class      : self._create_format(QColor("#4EC9B0")),
+            Token.String          : self._create_format(QColor("#CE9178")),
+            Token.Comment         : self._create_format(QColor("#6A9955"), italic=True),
+            Token.Operator        : self._create_format(QColor("#D4D4D4")),
+            Token.Number          : self._create_format(QColor("#B5CEA8")),
             Token.Keyword.Constant: self._create_format(QColor("#569CD6")),
-            Token.Name.Builtin:     self._create_format(QColor("#4EC9B0")),
-            Token.Name.Decorator:   self._create_format(QColor("#DCDCAA")),
+            Token.Name.Builtin    : self._create_format(QColor("#4EC9B0")),
+            Token.Name.Decorator  : self._create_format(QColor("#DCDCAA")),
+        }
+
+    def _chromodynamics_styles(self):
+        flow_kw_format  = self._create_format(QColor("#E8364F"))
+        decl_kw_format  = self._create_format(QColor("#66D9EF"))
+        const_format    = self._create_format(QColor("#9A79D7"))
+        decl_ref_format = self._create_format(QColor("#A6E22E"))
+        str_format      = self._create_format(QColor("#D3C970"))
+        spec_id_format  = self._create_format(QColor("#C9C8B6"), bold=True)
+        comment_format  = self._create_format(QColor("#33CC33"), bold=True)
+        default_format  = self._create_format(QColor("#C6C6C6"))
+
+        return {
+            Token.Comment            : comment_format,
+            Token.Keyword.Constant   : const_format,  # True, False, None
+            Token.Keyword.Declaration: decl_kw_format,  # def, class
+            Token.Keyword.Control    : flow_kw_format,  # if, for, while, return
+            Token.Keyword            : flow_kw_format,  # Other keywords
+            Token.Operator           : flow_kw_format,  # +, -, =, etc.
+            Token.Number             : const_format,
+            Token.String             : str_format,
+            Token.Name.Function      : decl_ref_format,
+            Token.Name.Class         : decl_ref_format,
+            Token.Name.Decorator     : decl_ref_format,
+            Token.Name.Builtin       : decl_kw_format,  # print, len, etc.
+            Token.Name.Builtin.Pseudo: spec_id_format,  # self, cls
+            Token.Name               : default_format,
+            Token.Text               : default_format,
         }
 
     def _create_format(self, color: QColor, bold: bool = False, italic: bool = False) -> QTextCharFormat:
@@ -266,3 +297,7 @@ def main(argv: list[str] = sys.argv):
 
 if __name__ == "__main__":
     main()
+
+
+# TODO: allow to move the separator
+# TODO: guess the language
