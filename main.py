@@ -16,7 +16,18 @@ from PySide6.QtCore import (
     QSize,
     Slot,
 )
-from PySide6.QtGui import QPainter, QColor, QPaintEvent
+from PySide6.QtGui import (
+    QPainter,
+    QColor,
+    QPaintEvent,
+    QSyntaxHighlighter,
+    QTextCharFormat,
+    QTextDocument,
+)
+
+from pygments import highlight
+from pygments.lexers import PythonLexer
+from pygments.token import Token
 
 
 DIR = Path(__file__).parent
@@ -27,6 +38,43 @@ if DARK_STYLE_SHEET_FILE.exists():
     DARK_STYLE_SHEET = DARK_STYLE_SHEET_FILE.read_text()
 else:
     DARK_STYLE_SHEET = ""
+
+
+class PygmentsHighlighter(QSyntaxHighlighter):
+    def __init__(self, parent: QTextDocument, lexer):
+        super().__init__(parent)
+        self.lexer = lexer
+
+        self.styles = {
+            Token.Keyword:          self._create_format(QColor("#C586C0")),
+            Token.Name.Function:    self._create_format(QColor("#DCDCAA")),
+            Token.Name.Class:       self._create_format(QColor("#4EC9B0")),
+            Token.String:           self._create_format(QColor("#CE9178")),
+            Token.Comment:          self._create_format(QColor("#6A9955"), italic=True),
+            Token.Operator:         self._create_format(QColor("#D4D4D4")),
+            Token.Number:           self._create_format(QColor("#B5CEA8")),
+            Token.Keyword.Constant: self._create_format(QColor("#569CD6")),
+            Token.Name.Builtin:     self._create_format(QColor("#4EC9B0")),
+            Token.Name.Decorator:   self._create_format(QColor("#DCDCAA")),
+        }
+
+    def _create_format(self, color: QColor, bold: bool = False, italic: bool = False) -> QTextCharFormat:
+        fmt = QTextCharFormat()
+        fmt.setForeground(color)
+        if bold:
+            fmt.setFontWeight(QFont.Weight.Bold)
+        if italic:
+            fmt.setFontItalic(True)
+        return fmt
+
+    def _find_best_style(self, token_type) -> QTextCharFormat:
+        while token_type not in self.styles and token_type.parent:
+            token_type = token_type.parent
+        return self.styles.get(token_type) or QTextCharFormat()
+
+    def highlightBlock(self, text: str) -> None:
+        for index, token_type, value in self.lexer.get_tokens_unprocessed(text):
+            self.setFormat(index, len(value), self._find_best_style(token_type))
 
 
 def count_digits(x: int) -> int:
@@ -102,6 +150,8 @@ class CodeEditor(QWidget):
 
         self.line_numbers = LineNumbers(self.editor)
 
+        self.highlighter = PygmentsHighlighter(self.editor.document(), PythonLexer())
+
         layout = QHBoxLayout(self)
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -176,18 +226,27 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(diff_editor)
         diff_editor.set_diff_text(
             """\
+@decorator
 def hello_world():
     # This is the original function
     print("Hello, world!")
+    a = 1 + 2 # A comment
 
 # Unchanged line
+class MyClass:
+    pass
 """,
             """\
+@decorator
 def hello_universe():
     # This function was modified
-    print("Hello, beautiful universe!")
+    print(f"Hello, beautiful {1+1} universe!")
+    a = 1 + 2 # A comment
 
 # Unchanged line
+class MyClass:
+    def __init__(self):
+        pass
 """
         )
 

@@ -1,1 +1,2 @@
 PySide6~=6.9.1
+Pygments~=2.19.2
