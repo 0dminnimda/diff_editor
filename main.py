@@ -9,16 +9,85 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QHBoxLayout,
 )
-from PySide6.QtCore import Slot, QTimer
+from PySide6.QtCore import (
+    Qt,
+    QTimer,
+    QRect,
+    QSize,
+    Slot,
+)
+from PySide6.QtGui import QPainter, QColor, QPaintEvent
 
 
 DIR = Path(__file__).parent
 DARK_STYLE_SHEET_FILE = DIR/"dark_mode.qss"
+# TODO: https://github.com/5yutan5/PyQtDarkTheme/blob/main/style/base.qss
 
 if DARK_STYLE_SHEET_FILE.exists():
     DARK_STYLE_SHEET = DARK_STYLE_SHEET_FILE.read_text()
 else:
     DARK_STYLE_SHEET = ""
+
+
+def count_digits(x: int) -> int:
+    return len(str(x)) if x > 0 else 1
+
+
+def iterate_visible_blocks(editor: QPlainTextEdit):
+    block = editor.firstVisibleBlock()
+    block_number = block.blockNumber()
+    while block.isValid() and block.isVisible():
+        yield block_number, block
+        block = block.next()
+        block_number += 1
+
+
+class LineNumbers(QWidget):
+    LEFT_PADDING_PX = 15
+    RIGHT_PADDING_PX = 5
+
+    def __init__(self, editor: QPlainTextEdit):
+        super().__init__(editor)
+        self.editor = editor
+
+    def calculate_width(self) -> int:
+        digits = count_digits(self.editor.blockCount())
+        digit_width = self.fontMetrics().horizontalAdvance('9')
+        return self.LEFT_PADDING_PX + self.RIGHT_PADDING_PX + digit_width * digits
+
+    def sizeHint(self) -> QSize:
+        return QSize(self.calculate_width(), 0)
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        painter = QPainter(self)
+
+        palette = self.editor.palette()
+        background_color = palette.color(palette.ColorRole.Base)
+        painter.fillRect(event.rect(), background_color.darker(110))
+
+        font_height = self.fontMetrics().height()
+        font_width = self.width() - self.RIGHT_PADDING_PX
+        top = self.editor.contentOffset().y()
+
+        painter.setPen(palette.color(palette.ColorRole.PlaceholderText))
+        for line_index, block in iterate_visible_blocks(self.editor):
+            painter.drawText(
+                0, top, font_width, font_height,
+                Qt.AlignRight, str(line_index + 1),
+            )
+            top += self.editor.blockBoundingRect(block).height()
+
+    @Slot(QRect, int)
+    def update_with_editor(self, rect: QRect, dy: int) -> None:
+        if dy:
+            self.scroll(0, dy)
+        else:
+            self.update(0, rect.y(), self.width(), rect.height())
+
+    @Slot()
+    def update_width(self):
+        width = self.calculate_width()
+        self.setFixedWidth(width)
 
 
 class CodeEditor(QWidget):
@@ -29,9 +98,18 @@ class CodeEditor(QWidget):
         self.editor.setFrameShape(QPlainTextEdit.Shape.NoFrame)
         self.editor.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
 
+        self.line_numbers = LineNumbers(self.editor)
+
         layout = QHBoxLayout(self)
+        layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.line_numbers)
         layout.addWidget(self.editor)
+
+        self.editor.updateRequest.connect(self.line_numbers.update_with_editor)
+        self.editor.blockCountChanged.connect(self.line_numbers.update_width)
+
+        self.line_numbers.update_width()
 
     def setText(self, text: str):
         self.editor.setPlainText(text)
@@ -39,6 +117,7 @@ class CodeEditor(QWidget):
 
     def setReadOnly(self, value: bool = True):
         self.editor.setReadOnly(value)
+
 
 
 class DiffEditor(QWidget):
