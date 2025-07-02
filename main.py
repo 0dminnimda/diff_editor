@@ -33,7 +33,7 @@ def count_digits(x: int) -> int:
     return len(str(x)) if x > 0 else 1
 
 
-def iterate_visible_blocks(editor: QPlainTextEdit):
+def iterate_loaded_blocks(editor: QPlainTextEdit):
     block = editor.firstVisibleBlock()
     block_number = block.blockNumber()
     while block.isValid() and block.isVisible():
@@ -67,15 +67,17 @@ class LineNumbers(QWidget):
 
         font_height = self.fontMetrics().height()
         font_width = self.width() - self.RIGHT_PADDING_PX
-        top = self.editor.contentOffset().y()
+        block_top = self.editor.contentOffset().y()
 
         painter.setPen(palette.color(palette.ColorRole.PlaceholderText))
-        for line_index, block in iterate_visible_blocks(self.editor):
+        for line_index, block in iterate_loaded_blocks(self.editor):
+            if block_top > event.rect().bottom():
+                break
             painter.drawText(
-                0, top, font_width, font_height,
+                0, block_top, font_width, font_height,
                 Qt.AlignRight, str(line_index + 1),
             )
-            top += self.editor.blockBoundingRect(block).height()
+            block_top += self.editor.blockBoundingRect(block).height()
 
     @Slot(QRect, int)
     def update_with_editor(self, rect: QRect, dy: int) -> None:
