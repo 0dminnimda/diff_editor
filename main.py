@@ -126,7 +126,7 @@ class LineNumbers(QWidget):
     RIGHT_PADDING_PX = 5
 
     def __init__(self, editor: QPlainTextEdit):
-        super().__init__(editor)
+        super().__init__()
         self.editor = editor
 
     def calculate_width(self) -> int:
