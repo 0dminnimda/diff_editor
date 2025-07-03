@@ -251,7 +251,7 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("Diff Editor")
-        self.resize(400, 200)
+        self.resize(800, 600)
 
         diff_editor = DiffEditor(self)
         self.setCentralWidget(diff_editor)
