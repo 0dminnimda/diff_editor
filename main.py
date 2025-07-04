@@ -287,8 +287,11 @@ class CodeEditor(QWidget):
 class DiffEditor(QWidget):
     UPDATE_DELAY_MS = 300
     COLLAPSE_THRESHOLD = 5
+
     ADD_COLOR = QColor(20, 200, 20, 100)
     DEL_COLOR = QColor(200, 20, 20, 100)
+
+    PLACEHOLDER_COLOR = QColor(60, 60, 60)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -377,6 +380,41 @@ class DiffEditor(QWidget):
         self.update_diff()
         return self
 
+    def _create_placeholder_text_format(self) -> QTextCharFormat:
+        fmt = QTextCharFormat()
+        fmt.setForeground(QColor("#888888"))
+        fmt.setFontItalic(True)
+        return fmt
+
+    def _get_placeholder_highlights(self, editor: CodeEditor) -> list[QTextEdit.ExtraSelection]:
+        selections = []
+        placeholder_format = QTextCharFormat()
+        placeholder_format.setBackground(self.PLACEHOLDER_COLOR)
+        placeholder_format.setProperty(QTextFormat.FullWidthSelection, True)
+
+        # Style the text itself to look different
+        text_format = self._create_placeholder_text_format()
+
+        block = editor.editor.document().firstBlock()
+        while block.isValid():
+            if block.userState() > 0:
+                # Apply special background
+                selection = QTextEdit.ExtraSelection()
+                selection.format = placeholder_format
+                selection.cursor = QTextCursor(block)
+                selections.append(selection)
+
+                # Apply special text format
+                text_selection = QTextEdit.ExtraSelection()
+                text_selection.format = text_format
+                cursor = QTextCursor(block)
+                cursor.select(QTextCursor.SelectionType.LineUnderCursor)
+                text_selection.cursor = cursor
+                selections.append(text_selection)
+
+            block = block.next()
+        return selections
+
     def _one_diff_highlight(self, length: int, color, cursor):
         selection = QTextEdit.ExtraSelection()
         selection.format.setBackground(color)
@@ -423,8 +461,12 @@ class DiffEditor(QWidget):
                 new_cursor.movePosition(QTextCursor.NextCharacter, QTextCursor.MoveAnchor, length)
             i += 1
 
-        self.old.apply_highlights(old_highlights)
-        self.new.apply_highlights(new_highlights)
+        # Get placeholder highlights and combine them with diff highlights
+        old_placeholder_highlights = self._get_placeholder_highlights(self.old)
+        new_placeholder_highlights = self._get_placeholder_highlights(self.new)
+
+        self.old.apply_highlights(old_highlights + old_placeholder_highlights)
+        self.new.apply_highlights(new_highlights + new_placeholder_highlights)
 
     @Slot(int)
     def expand_section(self, index):
@@ -534,4 +576,3 @@ if __name__ == "__main__":
 # TODO: add the spacers
 # TODO: make calculating diff not blocking for gui
 # TODO: when collapsing still show some context around collapsed lines
-# TODO: highlight the collapsed line somehow special
