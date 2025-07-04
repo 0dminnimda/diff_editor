@@ -1,8 +1,9 @@
 import sys
 import signal
 from pathlib import Path
-import fast_diff_match_patch
 from difflib import SequenceMatcher
+
+import fast_diff_match_patch
 
 from PySide6.QtWidgets import (
     QApplication,
@@ -34,7 +35,8 @@ from PySide6.QtGui import (
 )
 
 from pygments import highlight
-from pygments.lexers import PythonLexer, TextLexer
+from pygments.lexer import Lexer
+from pygments.lexers import PythonLexer, TextLexer, get_lexer_for_filename
 from pygments.token import Token
 
 
@@ -49,7 +51,7 @@ else:
 
 
 class PygmentsHighlighter(QSyntaxHighlighter):
-    def __init__(self, parent: QTextDocument, lexer):
+    def __init__(self, parent: QTextDocument, lexer: Lexer):
         super().__init__(parent)
         self.lexer = lexer
         # self.styles = self._default_styles()
@@ -262,7 +264,7 @@ class CodeEditor(QWidget):
 
         self.line_numbers.update_width()
 
-    def set_lexer(self, lexer):
+    def set_lexer(self, lexer: Lexer):
         """Creates or replaces the syntax highlighter."""
         if self.highlighter:
             # Clean up the old one to be safe
@@ -331,7 +333,7 @@ class DiffEditor(QWidget):
 
         event.connect(self.update_timer.start)
 
-    def set_diff_text(self, old: str, new: str, lexer):
+    def set_diff_text(self, old: str, new: str, lexer: Lexer):
         self.old.set_lexer(lexer)
         self.new.set_lexer(lexer)
 
@@ -566,7 +568,7 @@ class MyClass:
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, old_text: str, new_text: str, lexer: Lexer):
         super().__init__()
 
         self.setWindowTitle("Diff Editor")
@@ -574,7 +576,7 @@ class MainWindow(QMainWindow):
 
         diff_editor = DiffEditor(self)
         self.setCentralWidget(diff_editor)
-        diff_editor.set_diff_text(OLD_TEXT, NEW_TEXT, PythonLexer())
+        diff_editor.set_diff_text(old_text, new_text, lexer)
 
 
 def main(argv: list[str] = sys.argv):
@@ -584,7 +586,27 @@ def main(argv: list[str] = sys.argv):
     if DARK_STYLE_SHEET:
         app.setStyleSheet(DARK_STYLE_SHEET)
 
-    window = MainWindow()
+    # Set default texts and lexer
+    old_text, new_text, lexer = OLD_TEXT, NEW_TEXT, PythonLexer()
+
+    if len(argv) == 3:
+        file1_path = Path(argv[1])
+        file2_path = Path(argv[2])
+
+        old_text = file1_path.read_text(encoding="utf-8")
+        new_text = file2_path.read_text(encoding="utf-8")
+
+        try:
+            # Guess lexer from the second file's extension
+            lexer = get_lexer_for_filename(file2_path.name, stripall=True)
+        except Exception:  # pygments.util.ClassNotFound
+            print(
+                f"Warning: Could not find a lexer for '{file2_path.name}'. Falling back to plain text.",
+                file=sys.stderr,
+            )
+            lexer = TextLexer()
+
+    window = MainWindow(old_text, new_text, lexer)
     window.show()
 
     sys.exit(app.exec())
