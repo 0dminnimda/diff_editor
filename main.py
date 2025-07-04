@@ -314,8 +314,9 @@ class MainWindow(QMainWindow):
 
         diff_editor = DiffEditor(self)
         self.setCentralWidget(diff_editor)
+        prefix = "asdfhpklaspdlkfjplsadkfjsaplj\n"*15
         diff_editor.set_diff_text(
-            """\
+            prefix + """\
 @decorator
 def hello_world():
     # This is the original function
@@ -326,7 +327,7 @@ def hello_world():
 class MyClass:
     pass
 """,
-            """\
+            prefix + """\
 @decorator
 def hello_universe():
     # This function was modified
