@@ -277,7 +277,10 @@ class DiffEditor(QWidget):
         new_highlights = []
 
         old_cursor = self.old.editor.textCursor()
+        old_cursor.movePosition(QTextCursor.MoveOperation.Start)
+
         new_cursor = self.new.editor.textCursor()
+        new_cursor.movePosition(QTextCursor.MoveOperation.Start)
 
         i = 0
         while i < len(opcodes):
@@ -359,3 +362,4 @@ if __name__ == "__main__":
 # TODO: allow to move the plane separator
 # TODO: guess the language
 # TODO: add the spacers
+# TODO: collapse big equal parts
