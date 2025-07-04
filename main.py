@@ -134,6 +134,18 @@ class LineNumbers(QWidget):
         self.original_line_count = 0
         self.collapsed_sections = []
 
+        # Cache for mapping blockNumber to original line number
+        self._line_number_cache = {}
+        self._cache_valid = False  # Flag to indicate if the cache needs to be rebuilt
+
+        # Connect to document changes to invalidate the cache
+        self.editor.document().contentsChanged.connect(self._invalidate_cache)
+
+    @Slot()
+    def _invalidate_cache(self):
+        """Invalidate the cache when the document changes."""
+        self._cache_valid = False
+
     def calculate_width(self) -> int:
         digits = count_digits(self.original_line_count)
         digit_width = self.fontMetrics().horizontalAdvance('9')
@@ -141,6 +153,31 @@ class LineNumbers(QWidget):
 
     def sizeHint(self) -> QSize:
         return QSize(self.calculate_width(), 0)
+
+    def _build_cache(self):
+        """Build the cache mapping blockNumber to original line number."""
+        self._line_number_cache.clear()
+        doc = self.editor.document()
+        block = doc.firstBlock()
+        original_line_number = 1  # 1-based line number
+
+        while block.isValid():
+            block_number = block.blockNumber()
+            self._line_number_cache[block_number] = original_line_number
+
+            # Update original_line_number for the next block
+            state = block.userState()
+            if state > 0:  # This is a placeholder
+                collapse_index = state - 1
+                if 0 <= collapse_index < len(self.collapsed_sections):
+                    hidden_lines = len(self.collapsed_sections[collapse_index])
+                    original_line_number += hidden_lines
+            else:
+                original_line_number += 1
+
+            block = block.next()
+
+        self._cache_valid = True
 
     def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
@@ -160,24 +197,11 @@ class LineNumbers(QWidget):
         if not block.isValid():
             return
 
-        # Start with the original line number at the beginning of the document
-        doc = self.editor.document()
-        current_block = doc.firstBlock()
-        original_line_number = 1  # 1-based line number
+        # Rebuild the cache if it's invalid
+        if not self._cache_valid:
+            self._build_cache()
 
-        # Iterate through blocks until we reach the first visible block
-        while current_block.isValid() and current_block != block:
-            state = current_block.userState()
-            if state > 0:  # This is a placeholder
-                collapse_index = state - 1
-                if 0 <= collapse_index < len(self.collapsed_sections):
-                    hidden_lines = len(self.collapsed_sections[collapse_index])
-                    original_line_number += hidden_lines
-            else:
-                original_line_number += 1
-            current_block = current_block.next()
-
-         # Now iterate over visible blocks, drawing line numbers and updating original_line_number
+        # Iterate over visible blocks, using the cache to look up line numbers
         while block.isValid() and block.isVisible():
             if block_top > event.rect().bottom():
                 break
@@ -185,19 +209,12 @@ class LineNumbers(QWidget):
             # If this block is a placeholder, skip drawing a line number
             state = block.userState()
             if state <= 0:  # Normal line, draw the line number
+                block_number = block.blockNumber()
+                original_line_number = self._line_number_cache.get(block_number, 1)  # Fallback to 1 if not found
                 painter.drawText(
                     0, block_top, font_width, font_height,
                     Qt.AlignRight, str(original_line_number),
                 )
-
-            # Update original_line_number for the next block
-            if state > 0:  # This is a placeholder
-                collapse_index = state - 1
-                if 0 <= collapse_index < len(self.collapsed_sections):
-                    hidden_lines = len(self.collapsed_sections[collapse_index])
-                    original_line_number += hidden_lines
-            else:
-                original_line_number += 1
 
             block_top += self.editor.blockBoundingRect(block).height()
             block = block.next()
@@ -663,3 +680,4 @@ if __name__ == "__main__":
 # TODO: make calculating diff not blocking for gui
 # TODO: highlight the line that partially changed
 # XXX: since you cannot collapse back, add reload button to reset the view completely???
+# TODO: line numbers break at 100k lines
