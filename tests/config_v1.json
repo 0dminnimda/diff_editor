@@ -1,0 +1,13 @@
+{
+    "appName": "DiffTesterApp",
+    "version": "1.0.0",
+    "settings": {
+        "theme": "dark",
+        "notifications": true,
+        "loggingLevel": "INFO"
+    },
+    "features": [
+        "diffing",
+        "highlighting"
+    ]
+}

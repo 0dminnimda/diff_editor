@@ -1,0 +1,15 @@
+{
+    "appName": "DiffTesterApp Pro",
+    "version": "1.1.0",
+    "settings": {
+        "theme": "dark-blue",
+        "notifications": true,
+        "autoSave": true,
+        "loggingLevel": "WARNING"
+    },
+    "features": [
+        "diffing",
+        "highlighting",
+        "collapsing"
+    ]
+}

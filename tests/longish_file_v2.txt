@@ -1,0 +1,33 @@
+Start of the file.
+
+Common Section 1
+Line 01
+Line 02
+Line 03
+Line 04
+Line 05
+Line 06
+Line 07
+Line 08
+Line 09
+Line 10
+End of Common Section 1
+
+--- Change Area ---
+This is the NEW version of the middle section.
+We have modified this line.
+And added an extra line here!
+--- End Change Area ---
+
+Common Section 2
+Line A
+Line B
+Line C
+Line D
+Line E
+Line F
+Line G
+Line H
+Line I
+Line J
+End of Common Section 2
