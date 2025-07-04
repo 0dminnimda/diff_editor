@@ -126,13 +126,16 @@ class LineNumbers(QWidget):
     LEFT_PADDING_PX = 15
     RIGHT_PADDING_PX = 5
 
-    def __init__(self, editor: QPlainTextEdit, diff_editor: 'DiffEditor'):
+    def __init__(self, editor: QPlainTextEdit):
         super().__init__()
         self.editor = editor
-        self.diff_editor = diff_editor
+
+        # Those two are set directly from the DiffEditor or any other parent
+        self.original_line_count = 0
+        self.collapsed_sections = []
 
     def calculate_width(self) -> int:
-        digits = count_digits(self.editor.blockCount())
+        digits = count_digits(self.original_line_count)
         digit_width = self.fontMetrics().horizontalAdvance('9')
         return self.LEFT_PADDING_PX + self.RIGHT_PADDING_PX + digit_width * digits
 
@@ -152,29 +155,48 @@ class LineNumbers(QWidget):
 
         painter.setPen(palette.color(palette.ColorRole.PlaceholderText))
 
+        # Get the first visible block
         block = self.editor.firstVisibleBlock()
         if not block.isValid():
             return
 
-        original_line_number = block.blockNumber() + 1
+        # Start with the original line number at the beginning of the document
+        doc = self.editor.document()
+        current_block = doc.firstBlock()
+        original_line_number = 1  # 1-based line number
+
+        # Iterate through blocks until we reach the first visible block
+        while current_block.isValid() and current_block != block:
+            state = current_block.userState()
+            if state > 0:  # This is a placeholder
+                collapse_index = state - 1
+                if 0 <= collapse_index < len(self.collapsed_sections):
+                    hidden_lines = len(self.collapsed_sections[collapse_index])
+                    original_line_number += hidden_lines
+            else:
+                original_line_number += 1
+            current_block = current_block.next()
+
+         # Now iterate over visible blocks, drawing line numbers and updating original_line_number
         while block.isValid() and block.isVisible():
             if block_top > event.rect().bottom():
                 break
 
+            # If this block is a placeholder, skip drawing a line number
             state = block.userState()
-            if state > 0:
-                # This is a placeholder, skip drawing
-                collapse_index = state - 1
-                if 0 <= collapse_index < len(self.diff_editor.collapsed_sections):
-                    hidden_lines = len(self.diff_editor.collapsed_sections[collapse_index])
-                    # Jump the line number by the number of hidden lines
-                    original_line_number += hidden_lines
-            else:
-                # Normal line, draw the current line number
+            if state <= 0:  # Normal line, draw the line number
                 painter.drawText(
                     0, block_top, font_width, font_height,
                     Qt.AlignRight, str(original_line_number),
                 )
+
+            # Update original_line_number for the next block
+            if state > 0:  # This is a placeholder
+                collapse_index = state - 1
+                if 0 <= collapse_index < len(self.collapsed_sections):
+                    hidden_lines = len(self.collapsed_sections[collapse_index])
+                    original_line_number += hidden_lines
+            else:
                 original_line_number += 1
 
             block_top += self.editor.blockBoundingRect(block).height()
@@ -254,14 +276,14 @@ class CollapsiblePlainTextEdit(QPlainTextEdit):
 
 
 class CodeEditor(QWidget):
-    def __init__(self, parent: 'DiffEditor'):
+    def __init__(self, parent=None):
         super().__init__(parent)
 
         self.editor = CollapsiblePlainTextEdit(self)
         self.editor.setFrameShape(QPlainTextEdit.Shape.NoFrame)
         self.editor.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
 
-        self.line_numbers = LineNumbers(self.editor, parent)
+        self.line_numbers = LineNumbers(self.editor)
 
         self.highlighter = None
 
@@ -311,8 +333,8 @@ class DiffEditor(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.old = CodeEditor(self)
-        self.new = CodeEditor(self)
+        self.old = CodeEditor()
+        self.new = CodeEditor()
         self.old.setReadOnly(True)
 
         self._sync_scroll_bars()
@@ -352,9 +374,16 @@ class DiffEditor(QWidget):
         self.original_old = old.splitlines(keepends=True)
         self.original_new = new.splitlines(keepends=True)
         print(len(self.original_old), len(self.original_new))
+        self.old.line_numbers.original_line_count = len(self.original_old)
+        self.new.line_numbers.original_line_count = len(self.original_new)
+        self.old.line_numbers.update_width()
+        self.new.line_numbers.update_width()
+
         matcher = SequenceMatcher(None, self.original_old, self.original_new, autojunk=False)
 
         self.collapsed_sections = []  # List of original lines for each collapsed section
+        self.old.line_numbers.collapsed_sections = self.collapsed_sections
+        self.new.line_numbers.collapsed_sections = self.collapsed_sections
         placeholders_to_set = {self.old.editor: [], self.new.editor: []}
 
         displayed_old_parts = []
@@ -633,3 +662,4 @@ if __name__ == "__main__":
 # TODO: add the spacers
 # TODO: make calculating diff not blocking for gui
 # TODO: highlight the line that partially changed
+# XXX: since you cannot collapse back, add reload button to reset the view completely???
