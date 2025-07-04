@@ -177,16 +177,16 @@ class LineNumbers(QWidget):
         width = self.calculate_width()
         self.setFixedWidth(width)
 
+
 class CollapsiblePlainTextEdit(QPlainTextEdit):
     placeholderClicked = Signal(int)
 
     def mousePressEvent(self, event):
         cursor = self.cursorForPosition(event.position().toPoint())
         block = cursor.block()
-        text = block.text()
-        line_number = block.blockNumber()
-        if text.startswith("[") and text.endswith("]") and "lines hidden" in text:
-            self.placeholderClicked.emit(line_number)
+        state = block.userState()
+        if state > 0:
+            self.placeholderClicked.emit(state - 1)
         super().mousePressEvent(event)
 
     def selection_includes_placeholder(self):
