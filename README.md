@@ -6,6 +6,10 @@ The component is designed to be easily integrated into larger applications, for 
 
 ![diff of project commit](/static/preview_self.png)
 
+Turn on da sound! 🎧🗣🔥🎶
+
+https://github.com/user-attachments/assets/9b93e374-a59f-4291-b605-8b2a23d3f3fa
+
 ---
 
 ## Features
@@ -53,3 +57,12 @@ You can run the application in two ways:
     python main.py path/to/old_file.py path/to/new_file.py
     ```
 
+
+## Could Be Improved
+
+*   [ ] Implement a mechanism to re-collapse expanded sections.
+*   [ ] Run diff calculations in a separate thread (`QThread`) for extremely large files to guarantee the UI never hitches.
+*   [ ] Add visual "spacer" elements between discontinuous diff hunks to improve alignment, similar to GitHub's diff view.
+*   [ ] Add a "Reload" or "Reset" button to revert all edits and restore the initial collapsed view.
+
+If you want to commit to this project, then solve one of those and submit a Pull Request!
