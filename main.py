@@ -396,29 +396,38 @@ class DiffEditor(QWidget):
         self.new.apply_highlights(new_highlights)
 
     @Slot(int)
-    def expand_section(self, line_number):
-        for i, (placeholder_line, start_line, end_line, original_lines) in enumerate(self.collapsed_sections):
-            if placeholder_line == line_number:
-                self._expand_section(i)
-                break
+    def expand_section(self, index):
+        if 0 <= index < len(self.collapsed_sections):
+            self._expand_section(index)
 
     def _expand_section(self, index):
-        placeholder_line, start_line, end_line, original_lines = self.collapsed_sections[index]
-        self._replace_line_with_lines(self.old.editor, placeholder_line, original_lines)
-        self._replace_line_with_lines(self.new.editor, placeholder_line, original_lines)
+        section = self.collapsed_sections[index]
+        original_lines = section[3]  # The original hidden lines
+        # Replace the placeholder in both editors
+        for editor in [self.old.editor, self.new.editor]:
+            doc = editor.document()
+            # Iterate through blocks to find the one with matching userState
+            block = doc.findBlock(0)  # Start from the first block
+            while block.isValid():
+                if block.userState() == index + 1:
+                    cursor = QTextCursor(block)
+                    cursor.select(QTextCursor.BlockUnderCursor)
+                    cursor.removeSelectedText()
+                    cursor.insertText(''.join(original_lines))
+                    break
+                block = block.next()
+        # Remove the expanded section and update remaining userStates
         del self.collapsed_sections[index]
-        adjustment = len(original_lines) - 1
         for i in range(index, len(self.collapsed_sections)):
-            self.collapsed_sections[i] = (self.collapsed_sections[i][0] + adjustment, *self.collapsed_sections[i][1:])
+            for editor in [self.old.editor, self.new.editor]:
+                doc = editor.document()
+                block = doc.findBlock(0)
+                while block.isValid():
+                    if block.userState() == i + 2:
+                        block.setUserState(i + 1)
+                        break
+                    block = block.next()
         self.update_diff()
-
-    def _replace_line_with_lines(self, editor, line_number, lines):
-        cursor = editor.textCursor()
-        cursor.movePosition(QTextCursor.Start)
-        cursor.movePosition(QTextCursor.Down, QTextCursor.MoveAnchor, line_number)
-        cursor.select(QTextCursor.LineUnderCursor)
-        cursor.removeSelectedText()
-        cursor.insertText(''.join(lines))
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -477,5 +486,5 @@ if __name__ == "__main__":
 # TODO: allow to move the plane separator
 # TODO: guess the language
 # TODO: add the spacers
-# TODO: collapse big equal parts
 # TODO: make calculating diff not blocking for gui
+# TODO: when collapsing still show some context around collapsed lines
