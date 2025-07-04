@@ -131,23 +131,30 @@ class LineNumbers(QWidget):
         self.editor = editor
 
         # Those two are set directly from the DiffEditor or any other parent
-        self.original_line_count = 0
+        self.line_count = 0
         self.collapsed_sections = []
 
         # Cache for mapping blockNumber to original line number
         self._line_number_cache = {}
         self._cache_valid = False  # Flag to indicate if the cache needs to be rebuilt
 
-        # Connect to document changes to invalidate the cache
         self.editor.document().contentsChanged.connect(self._invalidate_cache)
+        self.editor.document().contentsChanged.connect(self._update_line_count)
 
     @Slot()
     def _invalidate_cache(self):
-        """Invalidate the cache when the document changes."""
         self._cache_valid = False
 
+    @Slot()
+    def _update_line_count(self):
+        doc = self.editor.document()
+        visible_lines = doc.blockCount()
+        hidden_lines = sum(len(section) - 1 for section in self.collapsed_sections)  # -1 for placeholder
+        self.line_count = visible_lines + hidden_lines
+        self.update_width()
+
     def calculate_width(self) -> int:
-        digits = count_digits(self.original_line_count)
+        digits = count_digits(self.line_count)
         digit_width = self.fontMetrics().horizontalAdvance('9')
         return self.LEFT_PADDING_PX + self.RIGHT_PADDING_PX + digit_width * digits
 
@@ -390,9 +397,8 @@ class DiffEditor(QWidget):
 
         self.original_old = old.splitlines(keepends=True)
         self.original_new = new.splitlines(keepends=True)
-        print(len(self.original_old), len(self.original_new))
-        self.old.line_numbers.original_line_count = len(self.original_old)
-        self.new.line_numbers.original_line_count = len(self.original_new)
+        self.old.line_numbers.line_count = len(self.original_old)
+        self.new.line_numbers.line_count = len(self.original_new)
         self.old.line_numbers.update_width()
         self.new.line_numbers.update_width()
 
@@ -680,4 +686,3 @@ if __name__ == "__main__":
 # TODO: make calculating diff not blocking for gui
 # TODO: highlight the line that partially changed
 # XXX: since you cannot collapse back, add reload button to reset the view completely???
-# TODO: line numbers break at 100k lines
