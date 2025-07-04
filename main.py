@@ -2,12 +2,15 @@ import sys
 import signal
 from pathlib import Path
 
+import fast_diff_match_patch
+
 from PySide6.QtWidgets import (
     QApplication,
     QWidget,
     QMainWindow,
     QPlainTextEdit,
     QHBoxLayout,
+    QTextEdit,
 )
 from PySide6.QtCore import (
     Qt,
@@ -24,6 +27,8 @@ from PySide6.QtGui import (
     QTextCharFormat,
     QTextDocument,
     QFont,
+    QTextCursor,
+    QTextFormat,
 )
 
 from pygments import highlight
@@ -45,6 +50,7 @@ class PygmentsHighlighter(QSyntaxHighlighter):
     def __init__(self, parent: QTextDocument, lexer):
         super().__init__(parent)
         self.lexer = lexer
+        # self.styles = self._default_styles()
         self.styles = self._chromodynamics_styles()
 
     def _default_styles(self):
@@ -201,10 +207,15 @@ class CodeEditor(QWidget):
     def setReadOnly(self, value: bool = True):
         self.editor.setReadOnly(value)
 
+    def apply_highlights(self, highlights: list[QTextEdit.ExtraSelection]):
+        self.editor.setExtraSelections(highlights)
 
 
 class DiffEditor(QWidget):
     UPDATE_DELAY_MS = 300
+
+    ADD_COLOR = QColor(20, 200, 20, 100)  # QColor("#2d6a36")
+    DEL_COLOR = QColor(200, 20, 20, 100)  # QColor("#7c2c30")
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -221,6 +232,7 @@ class DiffEditor(QWidget):
         layout.addWidget(self.new)
 
         self._update_diff_when(self.new.editor.textChanged)
+        self.set_diff_text("", "")
 
     def _sync_scroll_bars(self):
         old_scroll_bar = self.old.editor.verticalScrollBar()
@@ -240,10 +252,55 @@ class DiffEditor(QWidget):
     def set_diff_text(self, old: str, new: str):
         self.old.setText(old)
         self.new.setText(new)
+        self.update_diff()
         return self
 
+    def _one_diff_highlight(self, length: int, color, cursor):
+        selection = QTextEdit.ExtraSelection()
+        selection.format.setBackground(color)
+        selection.format.setProperty(QTextFormat.FullWidthSelection, True)
+        selection.cursor = cursor
+        selection.cursor.setPosition(cursor.position())
+        selection.cursor.movePosition(QTextCursor.NextCharacter, QTextCursor.KeepAnchor, length)
+        cursor.movePosition(QTextCursor.NextCharacter, QTextCursor.MoveAnchor, length)
+        return selection
+
+    @Slot()
     def update_diff(self):
-        print("updating!")
+        old_text = self.old.editor.toPlainText()
+        new_text = self.new.editor.toPlainText()
+
+        opcodes = fast_diff_match_patch.diff(old_text, new_text, timelimit=0.1, checklines=True, counts_only=True)
+        print(opcodes)
+
+        old_highlights = []
+        new_highlights = []
+
+        old_cursor = self.old.editor.textCursor()
+        new_cursor = self.new.editor.textCursor()
+
+        i = 0
+        while i < len(opcodes):
+            op, length = opcodes[i]
+
+            is_modification = op == '-' and i + 1 < len(opcodes) and opcodes[i+1][0] == '+'
+            if is_modification:
+                old_highlights.append(self._one_diff_highlight(opcodes[i  ][1], self.DEL_COLOR, old_cursor))
+                new_highlights.append(self._one_diff_highlight(opcodes[i+1][1], self.ADD_COLOR, new_cursor))
+                i += 2
+                continue
+
+            if op == '+':
+                new_highlights.append(self._one_diff_highlight(length, self.ADD_COLOR, new_cursor))
+            elif op == '-':
+                old_highlights.append(self._one_diff_highlight(length, self.DEL_COLOR, old_cursor))
+            elif op == '=':
+                old_cursor.movePosition(QTextCursor.NextCharacter, QTextCursor.MoveAnchor, length)
+                new_cursor.movePosition(QTextCursor.NextCharacter, QTextCursor.MoveAnchor, length)
+            i += 1
+
+        self.old.apply_highlights(old_highlights)
+        self.new.apply_highlights(new_highlights)
 
 
 class MainWindow(QMainWindow):
@@ -299,5 +356,6 @@ if __name__ == "__main__":
     main()
 
 
-# TODO: allow to move the separator
+# TODO: allow to move the plane separator
 # TODO: guess the language
+# TODO: add the spacers
