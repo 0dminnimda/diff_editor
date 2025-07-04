@@ -1,8 +1,8 @@
 import sys
 import signal
 from pathlib import Path
-
-import fast_diff_match_patch  # difflib is too slow
+import fast_diff_match_patch
+from difflib import SequenceMatcher
 
 from PySide6.QtWidgets import (
     QApplication,
@@ -18,6 +18,7 @@ from PySide6.QtCore import (
     QRect,
     QSize,
     Slot,
+    Signal,
 )
 from PySide6.QtGui import (
     QPainter,
@@ -176,12 +177,71 @@ class LineNumbers(QWidget):
         width = self.calculate_width()
         self.setFixedWidth(width)
 
+class CollapsiblePlainTextEdit(QPlainTextEdit):
+    placeholderClicked = Signal(int)
+
+    def mousePressEvent(self, event):
+        cursor = self.cursorForPosition(event.position().toPoint())
+        block = cursor.block()
+        text = block.text()
+        line_number = block.blockNumber()
+        if text.startswith("[") and text.endswith("]") and "lines hidden" in text:
+            self.placeholderClicked.emit(line_number)
+        super().mousePressEvent(event)
+
+    def selection_includes_placeholder(self):
+        cursor = self.textCursor()
+        if not cursor.hasSelection():
+            return False
+        start = cursor.selectionStart()
+        end = cursor.selectionEnd()
+        block = self.document().findBlock(start)
+        while block.isValid() and block.position() < end:
+            if block.userState() == 1:
+                return True
+            block = block.next()
+        return False
+
+    def keyPressEvent(self, event):
+        cursor = self.textCursor()
+        if cursor.hasSelection():
+            if self.selection_includes_placeholder():
+                # Allow navigation and copying when selection includes placeholders
+                if event.modifiers() & Qt.ControlModifier and event.key() == Qt.Key_C:
+                    super().keyPressEvent(event)
+                elif event.key() in (Qt.Key_Left, Qt.Key_Right, Qt.Key_Up, Qt.Key_Down,
+                                   Qt.Key_Home, Qt.Key_End, Qt.Key_PageUp, Qt.Key_PageDown):
+                    super().keyPressEvent(event)
+                # Ignore all other keys (e.g., Delete, Backspace, typing)
+            else:
+                super().keyPressEvent(event)
+        else:
+            block = cursor.block()
+            if block.userState() == 1:
+                # Allow only navigation keys on placeholder lines
+                if event.key() in (Qt.Key_Left, Qt.Key_Right, Qt.Key_Up, Qt.Key_Down,
+                                 Qt.Key_Home, Qt.Key_End, Qt.Key_PageUp, Qt.Key_PageDown):
+                    super().keyPressEvent(event)
+                # Ignore all other keys (e.g., typing, Backspace, Delete)
+            else:
+                super().keyPressEvent(event)
+
+    def insertFromMimeData(self, source):
+        cursor = self.textCursor()
+        if cursor.hasSelection():
+            if self.selection_includes_placeholder():
+                return  # Prevent pasting over a selection with placeholders
+        else:
+            block = cursor.block()
+            if block.userState() == 1:
+                return  # Prevent pasting on a placeholder line
+        super().insertFromMimeData(source)
 
 class CodeEditor(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.editor = QPlainTextEdit(self)
+        self.editor = CollapsiblePlainTextEdit(self)
         self.editor.setFrameShape(QPlainTextEdit.Shape.NoFrame)
         self.editor.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
 
@@ -213,9 +273,9 @@ class CodeEditor(QWidget):
 
 class DiffEditor(QWidget):
     UPDATE_DELAY_MS = 300
-
-    ADD_COLOR = QColor(20, 200, 20, 100)  # QColor("#2d6a36")
-    DEL_COLOR = QColor(200, 20, 20, 100)  # QColor("#7c2c30")
+    COLLAPSE_THRESHOLD = 5
+    ADD_COLOR = QColor(20, 200, 20, 100)
+    DEL_COLOR = QColor(200, 20, 20, 100)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -232,6 +292,8 @@ class DiffEditor(QWidget):
         layout.addWidget(self.new)
 
         self._update_diff_when(self.new.editor.textChanged)
+        self.old.editor.placeholderClicked.connect(self.expand_section)
+        self.new.editor.placeholderClicked.connect(self.expand_section)
         self.set_diff_text("", "")
 
     def _sync_scroll_bars(self):
@@ -250,8 +312,37 @@ class DiffEditor(QWidget):
         event.connect(self.update_timer.start)
 
     def set_diff_text(self, old: str, new: str):
-        self.old.setText(old)
-        self.new.setText(new)
+        self.original_old = old.splitlines(keepends=True)
+        self.original_new = new.splitlines(keepends=True)
+        matcher = SequenceMatcher(None, self.original_old, self.original_new)
+        self.collapsed_sections = []  # List of (line_number, start_line, end_line, original_lines)
+        displayed_old = []
+        displayed_new = []
+        line_number = 0
+        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+            if tag == 'equal' and (i2 - i1) > self.COLLAPSE_THRESHOLD:
+                placeholder = f"[{i2 - i1} lines hidden, click to expand]\n"
+                displayed_old.append(placeholder)
+                displayed_new.append(placeholder)
+                self.collapsed_sections.append((line_number, i1, i2, self.original_old[i1:i2]))
+                line_number += 1
+            else:
+                displayed_old.extend(self.original_old[i1:i2])
+                displayed_new.extend(self.original_new[j1:j2])
+                line_number += i2 - i1
+        self.old.setText(''.join(displayed_old))
+        self.new.setText(''.join(displayed_new))
+
+        # Mark placeholders with userState in both editors
+        doc_old = self.old.editor.document()
+        doc_new = self.new.editor.document()
+        for i, (line_number, _, _, _) in enumerate(self.collapsed_sections):
+            block_old = doc_old.findBlockByLineNumber(line_number)
+            if block_old.isValid():
+                block_old.setUserState(i + 1)  # i + 1 to reserve 0 for non-placeholders
+            block_new = doc_new.findBlockByLineNumber(line_number)
+            if block_new.isValid():
+                block_new.setUserState(i + 1)
         self.update_diff()
         return self
 
@@ -304,6 +395,30 @@ class DiffEditor(QWidget):
         self.old.apply_highlights(old_highlights)
         self.new.apply_highlights(new_highlights)
 
+    @Slot(int)
+    def expand_section(self, line_number):
+        for i, (placeholder_line, start_line, end_line, original_lines) in enumerate(self.collapsed_sections):
+            if placeholder_line == line_number:
+                self._expand_section(i)
+                break
+
+    def _expand_section(self, index):
+        placeholder_line, start_line, end_line, original_lines = self.collapsed_sections[index]
+        self._replace_line_with_lines(self.old.editor, placeholder_line, original_lines)
+        self._replace_line_with_lines(self.new.editor, placeholder_line, original_lines)
+        del self.collapsed_sections[index]
+        adjustment = len(original_lines) - 1
+        for i in range(index, len(self.collapsed_sections)):
+            self.collapsed_sections[i] = (self.collapsed_sections[i][0] + adjustment, *self.collapsed_sections[i][1:])
+        self.update_diff()
+
+    def _replace_line_with_lines(self, editor, line_number, lines):
+        cursor = editor.textCursor()
+        cursor.movePosition(QTextCursor.Start)
+        cursor.movePosition(QTextCursor.Down, QTextCursor.MoveAnchor, line_number)
+        cursor.select(QTextCursor.LineUnderCursor)
+        cursor.removeSelectedText()
+        cursor.insertText(''.join(lines))
 
 class MainWindow(QMainWindow):
     def __init__(self):
