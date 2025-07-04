@@ -2,7 +2,7 @@ import sys
 import signal
 from pathlib import Path
 
-import fast_diff_match_patch
+import fast_diff_match_patch  # difflib is too slow
 
 from PySide6.QtWidgets import (
     QApplication,
@@ -271,7 +271,6 @@ class DiffEditor(QWidget):
         new_text = self.new.editor.toPlainText()
 
         opcodes = fast_diff_match_patch.diff(old_text, new_text, timelimit=0.1, checklines=True, counts_only=True)
-        print(opcodes)
 
         old_highlights = []
         new_highlights = []
@@ -363,3 +362,4 @@ if __name__ == "__main__":
 # TODO: guess the language
 # TODO: add the spacers
 # TODO: collapse big equal parts
+# TODO: make calculating diff not blocking for gui
