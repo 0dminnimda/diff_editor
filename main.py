@@ -286,7 +286,8 @@ class CodeEditor(QWidget):
 
 class DiffEditor(QWidget):
     UPDATE_DELAY_MS = 300
-    COLLAPSE_THRESHOLD = 5
+    COLLAPSE_THRESHOLD_LINES = 5
+    COLLAPSE_CONTEXT_LINES = 2
 
     ADD_COLOR = QColor(20, 200, 20, 100)
     DEL_COLOR = QColor(200, 20, 20, 100)
@@ -348,19 +349,39 @@ class DiffEditor(QWidget):
         new_line_num = 0
 
         for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-            if tag == 'equal' and (i2 - i1) > self.COLLAPSE_THRESHOLD:
-                placeholder = f"[{i2 - i1} lines hidden, click to expand]\n"
+            num_equal_lines = i2 - i1
+            if tag == 'equal' and num_equal_lines > self.COLLAPSE_THRESHOLD_LINES:
+                num_hidden_lines = num_equal_lines - 2 * self.COLLAPSE_CONTEXT_LINES
+                placeholder = f"[{num_hidden_lines} lines hidden, click to expand]\n"
                 collapse_index = len(self.collapsed_sections)
-                self.collapsed_sections.append(self.original_old[i1:i2])
 
+                # Store the middle part that is actually collapsed
+                self.collapsed_sections.append(
+                    self.original_old[i1 + self.COLLAPSE_CONTEXT_LINES : i2 - self.COLLAPSE_CONTEXT_LINES]
+                )
+
+                # Show top context
+                displayed_old_parts.extend(self.original_old[i1 : i1 + self.COLLAPSE_CONTEXT_LINES])
+                displayed_new_parts.extend(self.original_new[j1 : j1 + self.COLLAPSE_CONTEXT_LINES])
+
+                # Add placeholder
                 displayed_old_parts.append(placeholder)
                 displayed_new_parts.append(placeholder)
 
-                placeholders_to_set[self.old.editor].append((old_line_num, collapse_index))
-                placeholders_to_set[self.new.editor].append((new_line_num, collapse_index))
+                # Show bottom context
+                displayed_old_parts.extend(self.original_old[i2 - self.COLLAPSE_CONTEXT_LINES : i2])
+                displayed_new_parts.extend(self.original_new[j2 - self.COLLAPSE_CONTEXT_LINES : j2])
 
-                old_line_num += 1
-                new_line_num += 1
+                # Record where to put the userState for the placeholder line
+                placeholder_line_in_old = old_line_num + self.COLLAPSE_CONTEXT_LINES
+                placeholder_line_in_new = new_line_num + self.COLLAPSE_CONTEXT_LINES
+                placeholders_to_set[self.old.editor].append((placeholder_line_in_old, collapse_index))
+                placeholders_to_set[self.new.editor].append((placeholder_line_in_new, collapse_index))
+
+                # Update line counts for the next iteration
+                lines_added_to_display = 2 * self.COLLAPSE_CONTEXT_LINES + 1
+                old_line_num += lines_added_to_display
+                new_line_num += lines_added_to_display
             else:
                 displayed_old_parts.extend(self.original_old[i1:i2])
                 displayed_new_parts.extend(self.original_new[j1:j2])
@@ -576,4 +597,3 @@ if __name__ == "__main__":
 # TODO: guess the language
 # TODO: add the spacers
 # TODO: make calculating diff not blocking for gui
-# TODO: when collapsing still show some context around collapsed lines
