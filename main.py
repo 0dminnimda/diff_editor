@@ -433,19 +433,11 @@ class DiffEditor(QWidget):
                     block = block.next()
         self.update_diff()
 
-class MainWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
 
-        self.setWindowTitle("Diff Editor")
-        self.resize(800, 600)
+prefix = "asdfhpklaspdlkfjplsadkfjsaplj\n"*15
+suffix = "pllppppppppllppplpppppp\n"*31
 
-        diff_editor = DiffEditor(self)
-        self.setCentralWidget(diff_editor)
-        prefix = "asdfhpklaspdlkfjplsadkfjsaplj\n"*15
-        suffix = "pllppppppppllppplpppppp\n"*31
-        diff_editor.set_diff_text(
-            prefix + """\
+OLD_TEXT = prefix + """\
 @decorator
 def hello_world():
     # This is the original function
@@ -455,8 +447,9 @@ def hello_world():
 # Unchanged line
 class MyClass:
     pass
-""" + suffix,
-            prefix + """\
+""" + suffix
+
+NEW_TEXT = prefix + """\
 @decorator
 def hello_universe():
     # This function was modified
@@ -468,7 +461,18 @@ class MyClass:
     def __init__(self):
         pass
 """ + suffix
-        )
+
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Diff Editor")
+        self.resize(800, 600)
+
+        diff_editor = DiffEditor(self)
+        self.setCentralWidget(diff_editor)
+        diff_editor.set_diff_text(OLD_TEXT, NEW_TEXT)
 
 
 def main(argv: list[str] = sys.argv):
