@@ -423,7 +423,12 @@ class DiffEditor(QWidget):
                 if block.userState() == index + 1:
                     cursor = QTextCursor(block)
                     cursor.beginEditBlock()
-                    cursor.select(QTextCursor.BlockUnderCursor)
+
+                    # Move to start of block and select entire block
+                    cursor.movePosition(QTextCursor.StartOfBlock)
+                    cursor.movePosition(QTextCursor.EndOfBlock, QTextCursor.KeepAnchor)
+
+                    # Replace with original content
                     cursor.insertText(text_to_insert)
                     cursor.endEditBlock()
                     break
