@@ -34,7 +34,7 @@ from PySide6.QtGui import (
 )
 
 from pygments import highlight
-from pygments.lexers import PythonLexer
+from pygments.lexers import PythonLexer, TextLexer
 from pygments.token import Token
 
 
@@ -238,6 +238,7 @@ class CollapsiblePlainTextEdit(QPlainTextEdit):
                 return  # Prevent pasting on a placeholder line
         super().insertFromMimeData(source)
 
+
 class CodeEditor(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -248,7 +249,7 @@ class CodeEditor(QWidget):
 
         self.line_numbers = LineNumbers(self.editor)
 
-        self.highlighter = PygmentsHighlighter(self.editor.document(), PythonLexer())
+        self.highlighter = None
 
         layout = QHBoxLayout(self)
         layout.setSpacing(0)
@@ -260,6 +261,17 @@ class CodeEditor(QWidget):
         self.editor.blockCountChanged.connect(self.line_numbers.update_width)
 
         self.line_numbers.update_width()
+
+    def set_lexer(self, lexer):
+        """Creates or replaces the syntax highlighter."""
+        if self.highlighter:
+            # Clean up the old one to be safe
+            self.highlighter.setDocument(None)
+            self.highlighter.setParent(None)
+
+        self.highlighter = PygmentsHighlighter(self.editor.document(), lexer)
+        # Re-highlighting is necessary if text is already present
+        self.highlighter.rehighlight()
 
     def setText(self, text: str):
         self.editor.setPlainText(text)
@@ -298,7 +310,7 @@ class DiffEditor(QWidget):
         self._update_diff_when(self.new.editor.textChanged)
         self.old.editor.placeholderClicked.connect(self.expand_section)
         self.new.editor.placeholderClicked.connect(self.expand_section)
-        self.set_diff_text("", "")
+        self.set_diff_text("", "", TextLexer())
 
     def _sync_scroll_bars(self):
         old_scroll_bar = self.old.editor.verticalScrollBar()
@@ -315,7 +327,10 @@ class DiffEditor(QWidget):
 
         event.connect(self.update_timer.start)
 
-    def set_diff_text(self, old: str, new: str):
+    def set_diff_text(self, old: str, new: str, lexer):
+        self.old.set_lexer(lexer)
+        self.new.set_lexer(lexer)
+
         self.original_old = old.splitlines(keepends=True)
         self.original_new = new.splitlines(keepends=True)
         matcher = SequenceMatcher(None, self.original_old, self.original_new, autojunk=False)
@@ -454,8 +469,11 @@ class DiffEditor(QWidget):
 
 
 
-prefix = "asdfhpklaspdlkfjplsadkfjsaplj\n"*15
-suffix = "pllppppppppllppplpppppp\n"*31
+# prefix = "'''\n" + "asdfhpklaspdlkfjplsadkfjsaplj\n"*15 + "'''\n"
+# suffix = "'''\n" + "pllppppppppllppplpppppp\n"*31 + "'''\n"
+
+prefix = "a = 25\n"*15 + "\n"
+suffix = "\n" + "b = 91\n"*31
 
 OLD_TEXT = prefix + """\
 @decorator
@@ -492,7 +510,7 @@ class MainWindow(QMainWindow):
 
         diff_editor = DiffEditor(self)
         self.setCentralWidget(diff_editor)
-        diff_editor.set_diff_text(OLD_TEXT, NEW_TEXT)
+        diff_editor.set_diff_text(OLD_TEXT, NEW_TEXT, PythonLexer())
 
 
 def main(argv: list[str] = sys.argv):
@@ -516,3 +534,4 @@ if __name__ == "__main__":
 # TODO: add the spacers
 # TODO: make calculating diff not blocking for gui
 # TODO: when collapsing still show some context around collapsed lines
+# TODO: highlight the collapsed line somehow special
