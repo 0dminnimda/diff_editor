@@ -1,0 +1,28 @@
+import os
+
+
+def initial_setup():
+    """Common setup function at the start of the file."""
+    print("Performing initial setup.")
+    if os.path.exists("config.txt"):
+        print("Config file found.")
+    return True
+
+
+def get_greeting(name):
+    return f"Hello there, {name}!"
+
+
+def main():
+    """The main entry point, which should remain unchanged."""
+    print("Script starting.")
+    initial_setup()
+
+    result = get_greeting("World")
+    print(result)
+
+    print("Script finished successfully.")
+
+
+if __name__ == "__main__":
+    main()

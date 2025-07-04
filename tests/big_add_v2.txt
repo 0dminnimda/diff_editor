@@ -1,0 +1,60 @@
+import os
+
+
+def initial_setup():
+    """Common setup function at the start of the file."""
+    print("Performing initial setup.")
+    if os.path.exists("config.txt"):
+        print("Config file found.")
+    return True
+
+
+class DataProcessor:
+    def __init__(self, source):
+        self.source = source
+        self.data = []
+        print(f"DataProcessor created for {source}")
+
+    def load_data(self):
+        print("Loading data... (simulated)")
+        for i in range(10):
+            self.data.append(f"Record {i+1}")
+        print("Data loaded.")
+
+    def process(self):
+        print("Processing data...")
+        self.data = [record.upper() for record in self.data]
+        print("Processing complete.")
+
+    def save_report(self, path):
+        print(f"Saving report to {path}")
+        # with open(path, "w") as f:
+        #     f.write("\n".join(self.data))
+        print("Report saved.")
+
+
+def get_greeting(name):
+    return f"Hello there, {name}!"
+
+
+def get_greeting_format(name):
+    return f"Greetings, {name}!"
+
+
+def main():
+    """The main entry point, which should remain unchanged."""
+    print("Script starting.")
+    initial_setup()
+
+    processor = DataProcessor("source.csv")
+    processor.load_data()
+    processor.process()
+
+    result = get_greeting("Galaxy")
+    print(result)
+
+    print("Script finished successfully.")
+
+
+if __name__ == "__main__":
+    main()
