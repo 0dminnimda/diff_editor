@@ -403,17 +403,21 @@ class DiffEditor(QWidget):
     def _expand_section(self, index):
         section = self.collapsed_sections[index]
         original_lines = section[3]  # The original hidden lines
-        # Replace the placeholder in both editors
         for editor in [self.old.editor, self.new.editor]:
             doc = editor.document()
-            # Iterate through blocks to find the one with matching userState
-            block = doc.findBlock(0)  # Start from the first block
+            block = doc.findBlock(0)
             while block.isValid():
                 if block.userState() == index + 1:
                     cursor = QTextCursor(block)
                     cursor.select(QTextCursor.BlockUnderCursor)
                     cursor.removeSelectedText()
-                    cursor.insertText(''.join(original_lines))
+                    # Insert lines individually to control newlines
+                    for i, line in enumerate(original_lines):
+                        # Remove trailing newline from the line and add it explicitly only if not the last line
+                        text = line.rstrip('\n')
+                        cursor.insertText(text)
+                        if i < len(original_lines) - 1:
+                            cursor.insertText('\n')
                     break
                 block = block.next()
         # Remove the expanded section and update remaining userStates
