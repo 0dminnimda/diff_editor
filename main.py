@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QHBoxLayout,
     QTextEdit,
+    QSplitter,
 )
 from PySide6.QtCore import (
     Qt,
@@ -286,10 +287,13 @@ class DiffEditor(QWidget):
 
         self._sync_scroll_bars()
 
+        splitter = QSplitter(Qt.Horizontal)
+        splitter.addWidget(self.old)
+        splitter.addWidget(self.new)
+
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self.old)
-        layout.addWidget(self.new)
+        layout.addWidget(splitter)
 
         self._update_diff_when(self.new.editor.textChanged)
         self.old.editor.placeholderClicked.connect(self.expand_section)
@@ -505,7 +509,6 @@ if __name__ == "__main__":
     main()
 
 
-# TODO: allow to move the plane separator
 # TODO: guess the language
 # TODO: add the spacers
 # TODO: make calculating diff not blocking for gui
