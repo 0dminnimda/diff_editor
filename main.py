@@ -122,22 +122,14 @@ def count_digits(x: int) -> int:
     return len(str(x)) if x > 0 else 1
 
 
-def iterate_viewport_blocks(editor: QPlainTextEdit):
-    block = editor.firstVisibleBlock()
-    block_number = block.blockNumber()
-    while block.isValid() and block.isVisible():
-        yield block_number, block
-        block = block.next()
-        block_number += 1
-
-
 class LineNumbers(QWidget):
     LEFT_PADDING_PX = 15
     RIGHT_PADDING_PX = 5
 
-    def __init__(self, editor: QPlainTextEdit):
+    def __init__(self, editor: QPlainTextEdit, diff_editor: 'DiffEditor'):
         super().__init__()
         self.editor = editor
+        self.diff_editor = diff_editor
 
     def calculate_width(self) -> int:
         digits = count_digits(self.editor.blockCount())
@@ -159,14 +151,34 @@ class LineNumbers(QWidget):
         block_top = self.editor.contentOffset().y()
 
         painter.setPen(palette.color(palette.ColorRole.PlaceholderText))
-        for line_index, block in iterate_viewport_blocks(self.editor):
+
+        block = self.editor.firstVisibleBlock()
+        if not block.isValid():
+            return
+
+        original_line_number = block.blockNumber() + 1
+        while block.isValid() and block.isVisible():
             if block_top > event.rect().bottom():
                 break
-            painter.drawText(
-                0, block_top, font_width, font_height,
-                Qt.AlignRight, str(line_index + 1),
-            )
+
+            state = block.userState()
+            if state > 0:
+                # This is a placeholder, skip drawing
+                collapse_index = state - 1
+                if 0 <= collapse_index < len(self.diff_editor.collapsed_sections):
+                    hidden_lines = len(self.diff_editor.collapsed_sections[collapse_index])
+                    # Jump the line number by the number of hidden lines
+                    original_line_number += hidden_lines
+            else:
+                # Normal line, draw the current line number
+                painter.drawText(
+                    0, block_top, font_width, font_height,
+                    Qt.AlignRight, str(original_line_number),
+                )
+                original_line_number += 1
+
             block_top += self.editor.blockBoundingRect(block).height()
+            block = block.next()
 
     @Slot(QRect, int)
     def update_with_editor(self, rect: QRect, dy: int) -> None:
@@ -242,14 +254,14 @@ class CollapsiblePlainTextEdit(QPlainTextEdit):
 
 
 class CodeEditor(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent: 'DiffEditor'):
         super().__init__(parent)
 
         self.editor = CollapsiblePlainTextEdit(self)
         self.editor.setFrameShape(QPlainTextEdit.Shape.NoFrame)
         self.editor.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
 
-        self.line_numbers = LineNumbers(self.editor)
+        self.line_numbers = LineNumbers(self.editor, parent)
 
         self.highlighter = None
 
@@ -299,8 +311,8 @@ class DiffEditor(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.old = CodeEditor()
-        self.new = CodeEditor()
+        self.old = CodeEditor(self)
+        self.new = CodeEditor(self)
         self.old.setReadOnly(True)
 
         self._sync_scroll_bars()
@@ -339,6 +351,7 @@ class DiffEditor(QWidget):
 
         self.original_old = old.splitlines(keepends=True)
         self.original_new = new.splitlines(keepends=True)
+        print(len(self.original_old), len(self.original_new))
         matcher = SequenceMatcher(None, self.original_old, self.original_new, autojunk=False)
 
         self.collapsed_sections = []  # List of original lines for each collapsed section
