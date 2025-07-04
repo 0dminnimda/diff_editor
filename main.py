@@ -301,7 +301,7 @@ class CodeEditor(QWidget):
 class DiffEditor(QWidget):
     UPDATE_DELAY_MS = 300
     COLLAPSE_THRESHOLD_LINES = 5
-    COLLAPSE_CONTEXT_LINES = 2
+    COLLAPSE_CONTEXT_LINES = 3
 
     ADD_COLOR = QColor(20, 200, 20, 100)
     DEL_COLOR = QColor(200, 20, 20, 100)
@@ -632,3 +632,4 @@ if __name__ == "__main__":
 # TODO: guess the language
 # TODO: add the spacers
 # TODO: make calculating diff not blocking for gui
+# TODO: highlight the line that partially changed
