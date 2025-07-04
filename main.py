@@ -428,11 +428,13 @@ class DiffEditor(QWidget):
                     cursor = QTextCursor(block)
                     cursor.beginEditBlock()
 
-                    # Move to start of block and select entire block
+                    # Select entire block including newline character
                     cursor.movePosition(QTextCursor.StartOfBlock)
                     cursor.movePosition(QTextCursor.EndOfBlock, QTextCursor.KeepAnchor)
+                    cursor.movePosition(QTextCursor.NextCharacter, QTextCursor.KeepAnchor)  # Include newline
 
                     # Replace with original content
+                    cursor.removeSelectedText()
                     cursor.insertText(text_to_insert)
                     cursor.endEditBlock()
                     break
@@ -449,6 +451,7 @@ class DiffEditor(QWidget):
                     block.setUserState(state - 1)
                 block = block.next()
         self.update_diff()
+
 
 
 prefix = "asdfhpklaspdlkfjplsadkfjsaplj\n"*15
