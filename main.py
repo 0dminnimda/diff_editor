@@ -535,6 +535,7 @@ def hello_universe():
     # This function was modified
     print(f"Hello, beautiful {1+1} universe!")
     a = 1 + 2 # A comment
+    b = a + 8
 
 # Unchanged line
 class MyClass:
