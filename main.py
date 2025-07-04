@@ -197,7 +197,7 @@ class CollapsiblePlainTextEdit(QPlainTextEdit):
         end = cursor.selectionEnd()
         block = self.document().findBlock(start)
         while block.isValid() and block.position() < end:
-            if block.userState() == 1:
+            if block.userState() > 0:
                 return True
             block = block.next()
         return False
@@ -217,7 +217,7 @@ class CollapsiblePlainTextEdit(QPlainTextEdit):
                 super().keyPressEvent(event)
         else:
             block = cursor.block()
-            if block.userState() == 1:
+            if block.userState() > 0:
                 # Allow only navigation keys on placeholder lines
                 if event.key() in (Qt.Key_Left, Qt.Key_Right, Qt.Key_Up, Qt.Key_Down,
                                  Qt.Key_Home, Qt.Key_End, Qt.Key_PageUp, Qt.Key_PageDown):
@@ -233,7 +233,7 @@ class CollapsiblePlainTextEdit(QPlainTextEdit):
                 return  # Prevent pasting over a selection with placeholders
         else:
             block = cursor.block()
-            if block.userState() == 1:
+            if block.userState() > 0:
                 return  # Prevent pasting on a placeholder line
         super().insertFromMimeData(source)
 
@@ -314,35 +314,47 @@ class DiffEditor(QWidget):
     def set_diff_text(self, old: str, new: str):
         self.original_old = old.splitlines(keepends=True)
         self.original_new = new.splitlines(keepends=True)
-        matcher = SequenceMatcher(None, self.original_old, self.original_new)
-        self.collapsed_sections = []  # List of (line_number, start_line, end_line, original_lines)
-        displayed_old = []
-        displayed_new = []
-        line_number = 0
+        matcher = SequenceMatcher(None, self.original_old, self.original_new, autojunk=False)
+
+        self.collapsed_sections = []  # List of original lines for each collapsed section
+        placeholders_to_set = {self.old.editor: [], self.new.editor: []}
+
+        displayed_old_parts = []
+        displayed_new_parts = []
+
+        old_line_num = 0
+        new_line_num = 0
+
         for tag, i1, i2, j1, j2 in matcher.get_opcodes():
             if tag == 'equal' and (i2 - i1) > self.COLLAPSE_THRESHOLD:
                 placeholder = f"[{i2 - i1} lines hidden, click to expand]\n"
-                displayed_old.append(placeholder)
-                displayed_new.append(placeholder)
-                self.collapsed_sections.append((line_number, i1, i2, self.original_old[i1:i2]))
-                line_number += 1
-            else:
-                displayed_old.extend(self.original_old[i1:i2])
-                displayed_new.extend(self.original_new[j1:j2])
-                line_number += i2 - i1
-        self.old.setText(''.join(displayed_old))
-        self.new.setText(''.join(displayed_new))
+                collapse_index = len(self.collapsed_sections)
+                self.collapsed_sections.append(self.original_old[i1:i2])
 
-        # Mark placeholders with userState in both editors
-        doc_old = self.old.editor.document()
-        doc_new = self.new.editor.document()
-        for i, (line_number, _, _, _) in enumerate(self.collapsed_sections):
-            block_old = doc_old.findBlockByLineNumber(line_number)
-            if block_old.isValid():
-                block_old.setUserState(i + 1)  # i + 1 to reserve 0 for non-placeholders
-            block_new = doc_new.findBlockByLineNumber(line_number)
-            if block_new.isValid():
-                block_new.setUserState(i + 1)
+                displayed_old_parts.append(placeholder)
+                displayed_new_parts.append(placeholder)
+
+                placeholders_to_set[self.old.editor].append((old_line_num, collapse_index))
+                placeholders_to_set[self.new.editor].append((new_line_num, collapse_index))
+
+                old_line_num += 1
+                new_line_num += 1
+            else:
+                displayed_old_parts.extend(self.original_old[i1:i2])
+                displayed_new_parts.extend(self.original_new[j1:j2])
+                old_line_num += (i2 - i1)
+                new_line_num += (j2 - j1)
+
+        self.old.setText(''.join(displayed_old_parts))
+        self.new.setText(''.join(displayed_new_parts))
+
+        for editor, placeholders in placeholders_to_set.items():
+            doc = editor.document()
+            for line_num, collapse_index in placeholders:
+                block = doc.findBlockByLineNumber(line_num)
+                if block.isValid():
+                    block.setUserState(collapse_index + 1)
+
         self.update_diff()
         return self
 
@@ -401,36 +413,32 @@ class DiffEditor(QWidget):
             self._expand_section(index)
 
     def _expand_section(self, index):
-        section = self.collapsed_sections[index]
-        original_lines = section[3]  # The original hidden lines
+        original_lines = self.collapsed_sections[index]
+        text_to_insert = "".join(original_lines)
+
         for editor in [self.old.editor, self.new.editor]:
             doc = editor.document()
-            block = doc.findBlock(0)
+            block = doc.firstBlock()
             while block.isValid():
                 if block.userState() == index + 1:
                     cursor = QTextCursor(block)
+                    cursor.beginEditBlock()
                     cursor.select(QTextCursor.BlockUnderCursor)
-                    cursor.removeSelectedText()
-                    # Insert lines individually to control newlines
-                    for i, line in enumerate(original_lines):
-                        # Remove trailing newline from the line and add it explicitly only if not the last line
-                        text = line.rstrip('\n')
-                        cursor.insertText(text)
-                        if i < len(original_lines) - 1:
-                            cursor.insertText('\n')
+                    cursor.insertText(text_to_insert)
+                    cursor.endEditBlock()
                     break
                 block = block.next()
+
         # Remove the expanded section and update remaining userStates
         del self.collapsed_sections[index]
-        for i in range(index, len(self.collapsed_sections)):
-            for editor in [self.old.editor, self.new.editor]:
-                doc = editor.document()
-                block = doc.findBlock(0)
-                while block.isValid():
-                    if block.userState() == i + 2:
-                        block.setUserState(i + 1)
-                        break
-                    block = block.next()
+        for editor in [self.old.editor, self.new.editor]:
+            doc = editor.document()
+            block = doc.firstBlock()
+            while block.isValid():
+                state = block.userState()
+                if state > index + 1:
+                    block.setUserState(state - 1)
+                block = block.next()
         self.update_diff()
 
 
