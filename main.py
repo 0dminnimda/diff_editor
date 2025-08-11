@@ -681,6 +681,7 @@ if __name__ == "__main__":
     main()
 
 
+# TODO: add ability to reload the files and redo the diffing (ex on "r" keypress)
 # TODO: guess the language
 # TODO: add the spacers
 # TODO: make calculating diff not blocking for gui
